@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Appointment from "@/models/Appointment";
 import Settings from "@/models/Settings";
+import mongoose from "mongoose";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,8 +37,9 @@ export async function GET(request: NextRequest) {
     const dayOfWeek = new Intl.DateTimeFormat("en-US", {
       weekday: "long",
     }).format(selectedDate).toLowerCase();
-    console.log("The day of the weeK ", dayOfWeek);
+    // console.log("CheckingThe day of the weeK ", dayOfWeek, settings.workingDays);
     if (!settings.workingDays.includes(dayOfWeek)) {
+      console.log("⛔⛔ The day is not a working day");
       return NextResponse.json({ availableSlots: [] });
     }
 
@@ -51,14 +53,20 @@ export async function GET(request: NextRequest) {
       dateTime: { $gte: startOfDay, $lt: endOfDay },
     });
 
+    console.log("Booked appointments:", bookedAppointments);
+
     const bookedTimes = bookedAppointments.map((apt) => {
       const time = new Date(apt.dateTime);
       return `${time.getHours().toString().padStart(2, "0")}:${time.getMinutes().toString().padStart(2, "0")}`;
     });
 
+    console.log("Booked times:", bookedTimes);
+
     // Generate available slots
     const [startHour, startMinute] = settings.startTime.split(":").map(Number);
     const [endHour, endMinute] = settings.endTime.split(":").map(Number);
+    console.log("Start time:", startHour, startMinute);
+    console.log("End time:", endHour, endMinute);
 
     const availableSlots: string[] = [];
     let currentTime = startHour * 60 + startMinute;
@@ -68,6 +76,7 @@ export async function GET(request: NextRequest) {
       const minute = currentTime % 60;
       const timeStr = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 
+      console.log("Current time:", timeStr);
       if (!bookedTimes.includes(timeStr)) {
         availableSlots.push(timeStr);
       }
@@ -75,6 +84,7 @@ export async function GET(request: NextRequest) {
       currentTime += settings.sessionDuration;
     }
 
+    console.log("Available slots:", availableSlots);
     return NextResponse.json({ availableSlots });
   } catch (error) {
     console.error("Error fetching available slots:", error);
@@ -179,6 +189,54 @@ export async function POST(request: NextRequest) {
     console.error("Error creating appointment:", error);
     return NextResponse.json(
       { error: "Failed to create appointment" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    await dbConnect();
+
+    const body = await request.json();
+    const { id, status } = body;
+
+    if (!id || !status) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    const validStatuses = ['pending', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+        return NextResponse.json(
+            { error: "Invalid status" },
+            { status: 400 },
+        );
+    }
+
+    const appointmentId = new mongoose.Types.ObjectId(id);
+    console.log("Updating appointment with ID:", appointmentId, status);
+
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: appointmentId },
+      { status: status, type: "accommodate" },
+      { new: true, runValidators: true }
+    );
+
+    if (!appointment) {
+      return NextResponse.json(
+        { error: "Appointment not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(appointment);
+  } catch (error) {
+    console.error("Error updating appointment:", error);
+    return NextResponse.json(
+      { error: "Failed to update appointment" },
       { status: 500 },
     );
   }

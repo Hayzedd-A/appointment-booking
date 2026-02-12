@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import { jwtVerify, JWTPayload } from "jose";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -15,9 +15,9 @@ export function middleware(request: NextRequest) {
     if (!token) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
-    let tokenPayload = '' as JwtPayload | string
+    // let tokenPayload = '' as JWTPayload | string
     try {
-      tokenPayload = jwt.verify(token, JWT_SECRET);
+      const tokenPayload = jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
       console.log("the admin token ", tokenPayload)
     } catch (error) {
         console.log("jwt verification failed", error)

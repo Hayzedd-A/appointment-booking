@@ -8,6 +8,7 @@ export interface IAppointment extends Document {
   address?: string;
   dateTime: Date;
   sessions: number;
+  status: 'pending' | 'completed' | 'cancelled';
   createdAt: Date;
 }
 
@@ -19,6 +20,7 @@ const AppointmentSchema: Schema = new Schema({
   address: { type: String },
   dateTime: { type: Date, required: true },
   sessions: { type: Number, default: 1, min: 1 },
+  status: { type: String, enum: ['pending', 'completed', 'cancelled'], default: 'pending' },
 }, {
   timestamps: true,
 });
