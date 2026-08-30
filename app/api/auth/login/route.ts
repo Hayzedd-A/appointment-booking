@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
       .setIssuedAt()
       .setExpirationTime('1h')
       .sign(new TextEncoder().encode(JWT_SECRET));
-    console.log("Signed token: ", token)
     const response = NextResponse.json({ message: 'Login successful' });
     response.cookies.set('token', token, {
       httpOnly: true,
